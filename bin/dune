@@ -1,0 +1,4 @@
+(executable
+ (public_name deplot)
+ (name main)
+ (libraries deplot yaml yaml.unix))
