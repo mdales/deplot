@@ -92,17 +92,23 @@ let project_to_dot (project : process_node list) : unit =
                     Printf.fprintf Stdlib.stdout "\tn%d[shape=\"cylinder\",label=\"%s\"];\n" input_index item;
                     Printf.fprintf Stdlib.stdout "\tn%d->n%d[penwidth=\"2.0\"];\n" input_index process_index
             ) node.inputs;
-            List.iter ( fun item -> 
-              try
-                let output_index = StringMap.find item !nodemap in
-                  Printf.fprintf Stdlib.stdout "\tn%d->n%d[penwidth=\"2.0\"];\n" process_index output_index
-              with
-                | Not_found ->
-                  let output_index = !index in
-                    index := !index + 1;
-                    nodemap := StringMap.add item output_index !nodemap;
-                    Printf.fprintf Stdlib.stdout "\tn%d[shape=\"cylinder\",label=\"%s\"];\n" output_index item;
-                    Printf.fprintf Stdlib.stdout "\tn%d->n%d[penwidth=\"2.0\"];\n" process_index output_index
+            List.iter ( fun output_name -> 
+              let multi = match String.index_from_opt output_name 0 '*' with
+                | Some(_) -> true
+                | None -> false
+              in 
+                let output_name = if multi then (String.sub output_name 0 ((String.length output_name) - 1_)) else output_name in
+                  let arrow_style = if multi then "crow" else "normal" in
+                    try
+                      let output_index = StringMap.find output_name !nodemap in
+                        Printf.fprintf Stdlib.stdout "\tn%d->n%d[arrowhead=\"%s\",penwidth=\"1.0\"];\n" process_index output_index arrow_style
+                    with
+                      | Not_found ->
+                        let output_index = !index in
+                          index := !index + 1;
+                          nodemap := StringMap.add output_name output_index !nodemap;
+                          Printf.fprintf Stdlib.stdout "\tn%d[shape=\"cylinder\",label=\"%s\"];\n" output_index output_name;
+                          Printf.fprintf Stdlib.stdout "\tn%d->n%d[arrowhead=\"%s\",penwidth=\"1.0\"];\n" process_index output_index arrow_style
             ) node.outputs;
             Printf.fprintf Stdlib.stdout "\n"
       ) project;
