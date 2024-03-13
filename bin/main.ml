@@ -15,9 +15,10 @@ exception Ill_formatted_child_yml
 type process_node = {
   style: string;
   title: string;
+  domains : string list;
   inputs : string list;
-  outputs: string list;
-  context: string option;
+  outputs : string list;
+  context : string option;
 }
 
 type box_node = {
@@ -104,6 +105,7 @@ let build_process (item : string * Yaml.value) : process_node =
           style = get_value "type" d;
           inputs = get_child "inputs" d;
           outputs = get_child "outputs" d;
+          domains = get_child "domains" d;
           context = None
         }
       | _ -> raise Ill_formatted_process_yml
@@ -218,6 +220,19 @@ let process_to_dot (node : process_node) (index : int ref) (nodemap : int String
             Printf.fprintf Stdlib.stdout "\tn%d->n%d[penwidth=\"2.0\"];\n" input_index process_index
       )
   ) node.inputs;
+  List.iter ( fun domain ->
+    try
+      let input_index = StringMap.find domain !nodemap in
+        Printf.fprintf Stdlib.stdout "\tn%d->n%d[penwidth=\"2.0\"];\n" input_index process_index
+    with
+    | Not_found -> (
+      let input_index = !index in
+        index := !index + 1;
+        nodemap := StringMap.add domain input_index !nodemap;
+        Printf.fprintf Stdlib.stdout "\tn%d[shape=\"invhouse\",label=\"%s\"];\n" input_index domain;
+        Printf.fprintf Stdlib.stdout "\tn%d->n%d[penwidth=\"2.0\"];\n" input_index process_index
+    )
+  ) node.domains;
   List.iter ( fun output_name ->
     let multi = match String.index_from_opt output_name 0 '*' with
       | Some(_) -> true
