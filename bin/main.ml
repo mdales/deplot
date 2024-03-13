@@ -24,6 +24,7 @@ type process_node = {
 type box_node = {
   title: string;
   name: string;
+  context : string option;
   children: process_node list;
 }
 
@@ -123,6 +124,7 @@ let build_group (item : string * Yaml.value) : box_node =
         {
           title = title;
           name = display_title;
+          context = get_optional_value "context" d;
           children = List.map build_process (get_child_nodes "children" d)
         }
       | _ -> raise Ill_formatted_process_yml
@@ -199,7 +201,6 @@ let process_to_dot (node : process_node) (index : int ref) (nodemap : int String
   let node_style = process_style node.style in
   let process_index = !index in
   index := !index + 1;
-  Printf.fprintf Stdlib.stdout "\tn%d[shape=\"%s\",label=\"%s\"];\n" process_index node_style node.title;
   List.iter ( fun item ->
     try
       let input_index = StringMap.find item !nodemap in
@@ -233,6 +234,7 @@ let process_to_dot (node : process_node) (index : int ref) (nodemap : int String
         Printf.fprintf Stdlib.stdout "\tn%d->n%d[penwidth=\"2.0\"];\n" input_index process_index
     )
   ) node.domains;
+  Printf.fprintf Stdlib.stdout "\tn%d[shape=\"%s\",label=\"%s\"];\n" process_index node_style node.title;
   List.iter ( fun output_name ->
     let multi = match String.index_from_opt output_name 0 '*' with
       | Some(_) -> true
@@ -262,9 +264,14 @@ let group_to_dot (node : box_node) (index : int ref) (nodemap : int StringMap.t 
   Printf.fprintf Stdlib.stdout "subgraph \"cluster_%s\" {\n" node.title;
   Printf.fprintf Stdlib.stdout "\tlabel = \"%s\"\n" node.name;
 
+  node.children |> List.map (fun (n : process_node) ->
+    { n with
+      context = node.context;
+    }
+  ) |>
   List.iter (fun n ->
     process_to_dot n index nodemap
-  ) node.children;
+  );
 
   Printf.fprintf Stdlib.stdout "}\n"
 
@@ -273,10 +280,10 @@ let generative_group_to_dot (node : generative_box_node) (index : int ref) (node
     let box = {
       title = Printf.sprintf "%d_%s" i node.title;
       name = name;
+      context = Some name;
       children = List.map (fun (n : process_node) ->
         { n with
           title = Printf.sprintf "%s_%i" n.title i ;
-          context = Some name;
         }) node.children;
     } in
     group_to_dot box index nodemap
